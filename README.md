@@ -25,6 +25,7 @@ The **Doctor Assistant** is an AI-powered diagnostic system designed to assist p
 
 ### Key Capabilities
 
+- **User Authentication**: Secure signup/login system with JWT tokens and automatic patient_id assignment
 - **Intelligent Patient Intake**: Natural language processing to extract patient information
 - **Emergency Detection**: Automatic detection of critical symptoms requiring immediate attention
 - **ML-Powered Diagnostics**: Integration of deep learning models for X-ray, Spirometry, and CBC analysis
@@ -33,6 +34,7 @@ The **Doctor Assistant** is an AI-powered diagnostic system designed to assist p
 - **Follow-up Analysis**: Comparison of current visit with previous visits for returning patients
 - **Human-in-the-Loop**: Confirmation checkpoints for patient data and treatment approval
 - **State Persistence**: Session management using LangGraph checkpointing
+- **Multi-LLM Support**: Automatic provider selection (OpenAI preferred, Groq fallback)
 
 ---
 
@@ -88,6 +90,20 @@ The **Doctor Assistant** is an AI-powered diagnostic system designed to assist p
    - Robust JSON parsing with fallback extraction
    - Graceful error handling to prevent infinite loops
    - Error tracking and workflow termination on critical failures
+
+### 9. **Authentication & Security**
+   - JWT-based authentication system
+   - Secure password hashing with bcrypt
+   - Automatic patient_id assignment on signup
+   - Protected API endpoints
+   - Token-based session management
+
+### 10. **Multi-LLM Provider Support**
+   - **OpenAI Integration**: GPT-3.5/GPT-4 support with automatic preference
+   - **Groq Integration**: Fast inference as fallback option
+   - **Automatic Selection**: Uses OpenAI if available, falls back to Groq
+   - **Fallback Mechanism**: Auto-switches to Groq if OpenAI fails
+   - **Flexible Configuration**: Easy to switch between providers via environment variables
 
 ---
 
@@ -178,12 +194,19 @@ AgentState {
 - **FAISS**: Vector similarity search library
 - **PyPDF2**: PDF document processing
 
-### LLM Provider
-- **Groq API**: Fast LLM inference for agent intelligence
+### LLM Providers
+- **OpenAI API**: GPT-3.5/GPT-4 for agent intelligence (preferred)
+- **Groq API**: Fast LLM inference as fallback option
+- **Automatic Selection**: System automatically uses OpenAI if available, otherwise Groq
 
 ### Database
 - **SQLite**: Lightweight database for development
 - **langgraph-checkpoint-sqlite**: Persistent checkpointing for LangGraph
+
+### Authentication & Security
+- **python-jose**: JWT token generation and validation
+- **passlib**: Secure password hashing (bcrypt)
+- **OAuth2**: Token-based authentication
 
 ### Other Libraries
 - **Pillow**: Image processing
@@ -226,8 +249,23 @@ AgentState {
 4. **Set up environment variables**
    Create a `.env` file in the `backend` directory:
    ```env
+   # LLM Provider (choose one or both - OpenAI is preferred if both exist)
+   OPENAI_API_KEY=sk-your_openai_api_key_here
+   OPENAI_MODEL=gpt-3.5-turbo  # or gpt-4, gpt-4-turbo, etc.
    GROQ_API_KEY=your_groq_api_key_here
+   GROQ_MODEL=llama-3.1-8b-instant
+   
+   # Authentication
+   JWT_SECRET_KEY=your-very-secure-random-secret-key-here
+   
+   # Database (optional)
    DATABASE_URL=sqlite:///./doctor_assistant.db
+   ```
+   
+   **Generate a secure JWT secret key:**
+   ```python
+   import secrets
+   print(secrets.token_urlsafe(32))
    ```
 
 5. **Initialize the database**
@@ -248,34 +286,142 @@ The API will be available at `http://127.0.0.1:8000`
 
 ### Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `GROQ_API_KEY` | API key for Groq LLM service | Yes |
-| `DATABASE_URL` | Database connection string | No (defaults to SQLite) |
+| Variable | Description | Required | Default |
+|----------|-------------|----------|---------|
+| `OPENAI_API_KEY` | API key for OpenAI (preferred) | No* | - |
+| `OPENAI_MODEL` | OpenAI model to use | No | `gpt-3.5-turbo` |
+| `GROQ_API_KEY` | API key for Groq (fallback) | No* | - |
+| `GROQ_MODEL` | Groq model to use | No | `llama-3.1-8b-instant` |
+| `JWT_SECRET_KEY` | Secret key for JWT tokens | Yes | - |
+| `LLM_TEMPERATURE` | Temperature for LLM generation | No | `0.7` |
+| `DATABASE_URL` | Database connection string | No | SQLite default |
 
-### Obtaining Groq API Key
+\* **At least one LLM API key is required** (OpenAI or Groq). If both are provided, OpenAI will be preferred.
 
+### LLM Provider Selection
+
+The system automatically selects the LLM provider based on available API keys:
+
+1. **If `OPENAI_API_KEY` is set**: Uses OpenAI (preferred)
+2. **If only `GROQ_API_KEY` is set**: Uses Groq
+3. **If both are set**: Uses OpenAI (with Groq as fallback if OpenAI fails)
+4. **If neither is set**: System will fail to start
+
+### Obtaining API Keys
+
+#### OpenAI API Key
+1. Visit [OpenAI Platform](https://platform.openai.com/)
+2. Sign up or log in
+3. Navigate to API Keys section
+4. Create a new API key
+5. Copy the key and add it to your `.env` file
+
+#### Groq API Key
 1. Visit [Groq Console](https://console.groq.com/)
 2. Sign up or log in
 3. Navigate to API Keys section
 4. Create a new API key
 5. Copy the key and add it to your `.env` file
 
+### JWT Secret Key
+
+Generate a secure secret key for JWT tokens:
+
+```python
+import secrets
+print(secrets.token_urlsafe(32))
+```
+
+Add the generated key to your `.env` file as `JWT_SECRET_KEY`.
+
 ---
 
 ## 🔌 API Endpoints
 
-### Diagnostic Workflow
+### Authentication Endpoints
+
+#### 1. Sign Up
+```http
+POST /auth/signup
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "secure_password",
+  "name": "John Doe",        // Optional
+  "age": 35,                 // Optional
+  "gender": "male"           // Optional
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "patient_id": 1,
+  "user_id": 1
+}
+```
+
+**Note**: On signup, the system automatically:
+- Creates a Patient record
+- Assigns a unique `patient_id` to the user
+- Returns JWT token for authentication
+
+#### 2. Login
+```http
+POST /auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "secure_password"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "patient_id": 1,
+  "user_id": 1
+}
+```
+
+#### 3. Get Current User Info
+```http
+GET /auth/me
+Authorization: Bearer {token}
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "patient_id": 1
+}
+```
+
+---
+
+### Diagnostic Workflow (Protected - Requires Authentication)
+
+**All diagnostic endpoints require JWT authentication. Include the token in the Authorization header:**
+
+```http
+Authorization: Bearer {your_jwt_token}
+```
 
 #### 1. Start Diagnostic Session
 ```http
 POST /diagnostic/start
-Content-Type: application/json
-
-{
-  "patient_id": null  // Optional: existing patient ID
-}
+Authorization: Bearer {token}
 ```
+
+**Note**: `patient_id` is automatically extracted from the JWT token. No need to provide it manually.
 
 **Response:**
 ```json
@@ -283,7 +429,7 @@ Content-Type: application/json
   "message": "Welcome! I'm your Pulmonologist Assistant...",
   "current_step": "patient_intake",
   "visit_id": "abc-123-def-456",
-  "patient_id": null,
+  "patient_id": 1,
   "emergency_flag": false
 }
 ```
@@ -291,13 +437,15 @@ Content-Type: application/json
 #### 2. Chat with Agent
 ```http
 POST /diagnostic/chat
+Authorization: Bearer {token}
 Content-Type: multipart/form-data
 
 message: "My name is John, I'm 35 years old, male..."
 visit_id: "abc-123-def-456"
-patient_id: null  // Optional
 xray_image: <file>  // Optional: X-ray image file
 ```
+
+**Note**: `patient_id` is automatically extracted from the token.
 
 **Response:**
 ```json
@@ -305,7 +453,7 @@ xray_image: <file>  // Optional: X-ray image file
   "message": "Thank you for the information. Please confirm...",
   "current_step": "patient_intake",
   "visit_id": "abc-123-def-456",
-  "patient_id": null,
+  "patient_id": 1,
   "emergency_flag": false
 }
 ```
@@ -313,6 +461,7 @@ xray_image: <file>  // Optional: X-ray image file
 #### 3. Get Current State
 ```http
 GET /diagnostic/state/{visit_id}
+Authorization: Bearer {token}
 ```
 
 **Response:**
@@ -330,6 +479,7 @@ GET /diagnostic/state/{visit_id}
 #### 4. Delete Session
 ```http
 DELETE /diagnostic/delete/{visit_id}
+Authorization: Bearer {token}
 ```
 
 ### Other Endpoints
@@ -493,7 +643,16 @@ result = predict_blood_disease(cbc_values_dict)
 - updated_at
 ```
 
-#### 2. **Visit**
+#### 2. **User**
+```sql
+- id (Primary Key)
+- email (Unique)
+- password_hash
+- patient_id (Foreign Key → Patient.id, Unique)
+- created_at
+```
+
+#### 3. **Visit**
 ```sql
 - id (Primary Key)
 - patient_id (Foreign Key → Patient.id)
@@ -507,7 +666,7 @@ result = predict_blood_disease(cbc_values_dict)
 - updated_at
 ```
 
-#### 3. **Diagnosis**
+#### 4. **Diagnosis**
 ```sql
 - id (Primary Key)
 - visit_id (Foreign Key → Visit.id)
@@ -517,7 +676,7 @@ result = predict_blood_disease(cbc_values_dict)
 - created_at
 ```
 
-#### 4. **Imaging**
+#### 5. **Imaging**
 ```sql
 - id (Primary Key)
 - visit_id (Foreign Key → Visit.id)
@@ -526,7 +685,7 @@ result = predict_blood_disease(cbc_values_dict)
 - created_at
 ```
 
-#### 5. **Lab_Results**
+#### 6. **Lab_Results**
 ```sql
 - id (Primary Key)
 - visit_id (Foreign Key → Visit.id)
@@ -632,27 +791,38 @@ The system implements robust error handling:
 
 3. **Use cURL**
    ```bash
-   # Start session
-   curl -X POST "http://127.0.0.1:8000/diagnostic/start" \
+   # Sign up
+   curl -X POST "http://127.0.0.1:8000/auth/signup" \
         -H "Content-Type: application/json" \
-        -d '{"patient_id": null}'
+        -d '{"email": "test@example.com", "password": "test123"}'
+   
+   # Login (save the token from response)
+   curl -X POST "http://127.0.0.1:8000/auth/login" \
+        -H "Content-Type: application/json" \
+        -d '{"email": "test@example.com", "password": "test123"}'
+   
+   # Start diagnostic session (use token from login)
+   curl -X POST "http://127.0.0.1:8000/diagnostic/start" \
+        -H "Authorization: Bearer YOUR_TOKEN_HERE"
    
    # Chat
    curl -X POST "http://127.0.0.1:8000/diagnostic/chat" \
+        -H "Authorization: Bearer YOUR_TOKEN_HERE" \
         -F "message=My name is John, age 35" \
         -F "visit_id=abc-123-def-456"
    ```
 
 ### Testing Workflow
 
-1. Start a new diagnostic session
-2. Provide patient information
-3. Confirm patient data (HITL checkpoint)
-4. Provide test results (X-ray, Spirometry, CBC)
-5. Review treatment plan
-6. Approve/modify treatment (HITL checkpoint)
-7. Review final report
-8. Check database for saved data
+1. **Sign up** or **login** to get JWT token
+2. **Start a new diagnostic session** (token automatically provides patient_id)
+3. Provide patient information
+4. Confirm patient data (HITL checkpoint)
+5. Provide test results (X-ray, Spirometry, CBC)
+6. Review treatment plan
+7. Approve/modify treatment (HITL checkpoint)
+8. Review final report
+9. Check database for saved data
 
 ### Example Test Case
 
@@ -685,19 +855,34 @@ backend/
 │   │   ├── database.py            # SQLAlchemy setup
 │   │   └── init_db.py             # Database initialization
 │   ├── db_models/
+│   │   ├── user.py              # User authentication model
 │   │   ├── patient.py
 │   │   ├── visit.py
 │   │   ├── diagnosis.py
 │   │   ├── imaging.py
 │   │   └── lab_results.py
+│   ├── core/
+│   │   ├── database.py            # SQLAlchemy setup
+│   │   ├── init_db.py             # Database initialization
+│   │   └── auth.py                # Authentication utilities (JWT, password hashing)
 │   ├── fastapi_routers/
-│   │   ├── diagnostic.py          # Main diagnostic endpoints
+│   │   ├── auth.py                # Authentication endpoints (signup, login, me)
+│   │   ├── diagnostic.py          # Main diagnostic endpoints (protected)
 │   │   ├── patients.py
 │   │   ├── visits.py
 │   │   ├── imaging.py
 │   │   ├── spirometry.py
 │   │   ├── lab_results.py
 │   │   └── rag.py
+│   ├── schemas/
+│   │   ├── auth.py                # Authentication schemas
+│   │   ├── patient.py
+│   │   ├── visit.py
+│   │   ├── diagnosis.py
+│   │   ├── diagnostic.py
+│   │   ├── imaging.py
+│   │   ├── spirometry.py
+│   │   └── lab_results.py
 │   ├── ml_models/
 │   │   ├── xray/
 │   │   │   ├── preprocessor.py
@@ -764,11 +949,43 @@ backend/
   - Treatments (effectiveness, changes)
 - Generates progress summary using LLM
 
+### Authentication Flow
+
+1. **Signup**: User creates account → System creates Patient record → Assigns `patient_id` → Returns JWT token
+2. **Login**: User authenticates → Returns JWT token with `patient_id`
+3. **Protected Endpoints**: All diagnostic endpoints require JWT token
+4. **Automatic patient_id**: Token contains `patient_id`, automatically used in diagnostic workflow
+
+### LLM Provider Selection
+
+The system uses a smart provider selection mechanism:
+
+1. **Startup Check**: Checks for `OPENAI_API_KEY` and `GROQ_API_KEY`
+2. **Priority**: OpenAI > Groq (if both available)
+3. **Runtime Fallback**: If OpenAI call fails, automatically falls back to Groq
+4. **Transparent**: All agents use `call_llm()` which handles provider selection automatically
+
+**Example Configuration:**
+```env
+# Use OpenAI (preferred)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-3.5-turbo
+
+# Or use Groq (fallback)
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.1-8b-instant
+
+# Or both (OpenAI preferred, Groq as fallback)
+OPENAI_API_KEY=sk-...
+GROQ_API_KEY=gsk_...
+```
+
 ---
 
 ## 🚀 Future Enhancements
 
-- [ ] Authentication and authorization
+- [x] Authentication and authorization ✅
+- [x] Multi-LLM provider support (OpenAI + Groq) ✅
 - [ ] Rate limiting
 - [ ] Comprehensive unit and integration tests
 - [ ] Docker containerization
@@ -785,11 +1002,17 @@ backend/
 
 ## 📝 Notes
 
-- The system is designed for **development and testing** purposes
-- For production use, implement proper security, authentication, and compliance measures
+- The system includes **authentication and security** features (JWT tokens, password hashing)
+- For production use, ensure:
+  - Strong `JWT_SECRET_KEY` is set (use `secrets.token_urlsafe(32)`)
+  - HTTPS is enabled
+  - Rate limiting is implemented
+  - Proper error logging and monitoring
+  - HIPAA compliance measures (if handling real patient data)
 - ML models should be regularly updated and validated
 - RAG knowledge base should be periodically updated with latest medical guidelines
 - Database should be backed up regularly
+- **LLM Provider**: System automatically selects best available provider (OpenAI preferred, Groq fallback)
 
 ---
 
@@ -797,20 +1020,16 @@ backend/
 
 This is a project for learning and development. Contributions and improvements are welcome!
 
----
 
-## 📄 License
-
-[Specify your license here]
 
 ---
 
 ## 👤 Author
 
-[Your name/team]
+MUHAMMAD HASSAN SHAHBAZ
 
 ---
 
-**Last Updated**: [Current Date]
+**Last Updated**: 12-DEC-2025
 
 # PulmoAI-Assistant_backend

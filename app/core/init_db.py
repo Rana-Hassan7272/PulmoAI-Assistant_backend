@@ -4,6 +4,7 @@ from ..db_models.visit import Visit
 from ..db_models.lab_results import LabResult
 from ..db_models.imaging import Imaging
 from ..db_models.diagnosis import Diagnosis
+from ..db_models.user import User
 
 def init_db():
     Base.metadata.create_all(bind=engine)

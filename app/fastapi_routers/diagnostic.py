@@ -1,11 +1,13 @@
 """
 FastAPI router for diagnostic workflow (LangGraph integration).
 """
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from typing import Optional
 from ..schemas.diagnostic import DiagnosticMessage, DiagnosticResponse
 from ..agents.graph import create_diagnostic_graph
 from ..agents.state import AgentState
+from ..core.auth import get_current_user
+from ..db_models.user import User
 import uuid
 from PIL import Image
 import io
@@ -25,14 +27,28 @@ def get_graph():
 
 
 @router.post("/start", response_model=DiagnosticResponse)
-def start_diagnostic(patient_id: Optional[int] = None):
+def start_diagnostic(
+    current_user: User = Depends(get_current_user)
+):
     """
     Start a new diagnostic workflow session.
+    
+    Uses patient_id from authenticated user's token.
+    User must be logged in to start a diagnostic session.
     
     Returns:
         Initial message from Patient Intake Agent
     """
     try:
+        # Get patient_id from authenticated user
+        patient_id = current_user.patient_id
+        
+        if not patient_id:
+            raise HTTPException(
+                status_code=400,
+                detail="No patient_id associated with your account. Please contact support."
+            )
+        
         # Test graph creation first
         graph = get_graph()
         if graph is None:
@@ -158,9 +174,9 @@ def start_diagnostic(patient_id: Optional[int] = None):
 @router.post("/chat", response_model=DiagnosticResponse)
 async def chat_with_agent(
     message: str = Form(...),
-    patient_id: Optional[int] = Form(None),
     visit_id: Optional[str] = Form(None),
-    xray_image: Optional[UploadFile] = File(None)
+    xray_image: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Continue the diagnostic workflow with a user message.
@@ -171,13 +187,23 @@ async def chat_with_agent(
     3. Continues the LangGraph workflow from current step
     4. Returns agent response
     
+    User must be authenticated. patient_id is automatically taken from user's token.
+    
     Parameters:
     - message: User's text message
-    - patient_id: Optional patient ID
     - visit_id: Optional visit ID (for continuing conversation)
     - xray_image: Optional X-ray image file upload
     """
     try:
+        # Get patient_id from authenticated user
+        patient_id = current_user.patient_id
+        
+        if not patient_id:
+            raise HTTPException(
+                status_code=400,
+                detail="No patient_id associated with your account. Please contact support."
+            )
+        
         graph = get_graph()
         
         # Process X-ray image if uploaded
@@ -417,9 +443,14 @@ async def chat_with_agent(
 
 
 @router.get("/state/{visit_id}")
-async def get_state(visit_id: str):
+async def get_state(
+    visit_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Get current state for a visit session using LangGraph checkpointer.
+    
+    User must be authenticated. Only returns state for the authenticated user's visits.
     
     Useful for debugging or frontend state management.
     """
@@ -473,9 +504,14 @@ async def get_state(visit_id: str):
 
 
 @router.delete("/state/{visit_id}")
-async def clear_session(visit_id: str):
+async def clear_session(
+    visit_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
     Clear/delete a session from LangGraph checkpointer.
+    
+    User must be authenticated. Only allows clearing own sessions.
     
     Useful when a visit is completed or needs to be reset.
     Note: With MemorySaver, this clears the thread. For persistent storage,

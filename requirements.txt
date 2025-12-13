@@ -27,3 +27,5 @@ typing-extensions
 groq
 PyPDF2
 tf-keras
+python-jose[cryptography]
+passlib[bcrypt]
