@@ -2,10 +2,10 @@
 Authentication utilities: JWT token generation/validation and password hashing.
 """
 import os
+import bcrypt
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -15,9 +15,6 @@ from ..db_models.user import User
 
 # Load environment variables
 load_dotenv()
-
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -34,13 +31,40 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    """Verify a password against a hash using bcrypt."""
+    try:
+        if isinstance(plain_password, str):
+            plain_password_bytes = plain_password.encode('utf-8')
+        else:
+            plain_password_bytes = plain_password
+        
+        # Bcrypt limit is 72 bytes
+        if len(plain_password_bytes) > 72:
+            plain_password_bytes = plain_password_bytes[:72]
+        
+        hashed_bytes = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(plain_password_bytes, hashed_bytes)
+    except Exception as e:
+        print(f"Error verifying password: {e}")
+        return False
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password."""
-    return pwd_context.hash(password)
+    """Hash a password using bcrypt directly (avoids passlib bug detection issues)."""
+    # Ensure password is bytes
+    if isinstance(password, str):
+        password_bytes = password.encode('utf-8')
+    else:
+        password_bytes = password
+    
+    # Bcrypt limit is 72 bytes
+    if len(password_bytes) > 72:
+        password_bytes = password_bytes[:72]
+    
+    # Generate salt and hash
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -110,4 +134,3 @@ def get_current_user_optional(
         return get_current_user(token, db)
     except HTTPException:
         return None
-

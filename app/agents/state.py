@@ -33,6 +33,7 @@ class AgentState(TypedDict):
     # Emergency Detection
     emergency_flag: bool
     emergency_reason: Optional[str]
+    emergency_checked: bool  # Flag to track if emergency check has been performed (prevents re-checking)
     
     # Doctor Note
     doctor_note: Optional[str]
@@ -49,6 +50,9 @@ class AgentState(TypedDict):
     
     # Missing Tests
     missing_tests: List[str]
+    tests_collected: List[str]  # List of tests actually completed (e.g. ["xray", "cbc"])
+    tests_skipped: List[str]    # List of tests the user decided to skip
+    test_collector_findings: Optional[str]  # Summary of findings from ML models/tests
     
     # RAG and Diagnosis
     rag_context: Optional[str]  # Retrieved context from FAISS vector DB
@@ -61,6 +65,7 @@ class AgentState(TypedDict):
     # History Comparison (for follow-up visits)
     previous_visits: Optional[List[Dict[str, Any]]]
     progress_summary: Optional[str]
+    patient_history_summary: Optional[str]  # Formatted 2-3 line summaries of previous visits
     
     # Conversation History (for agent interactions)
     conversation_history: Annotated[List[Dict[str, str]], "append"]  # List of {"role": "user/assistant", "content": "..."}
@@ -80,4 +85,14 @@ class AgentState(TypedDict):
     # Error handling and retry tracking
     error_count: int  # Number of consecutive errors (to prevent infinite loops)
     workflow_error: Optional[str]  # Error message that stops the workflow
+    
+    # Supervisor routing
+    next_step: Optional[str]  # Next agent/tool to call (set by supervisor)
+    
+    # Test collection
+    test_collection_complete: bool  # Flag indicating test collection is complete
+    
+    # History
+    visit_summary: Optional[str]  # 2-3 line summary of visit for history
+    history_saved: bool  # Flag to track if history has been saved (prevents duplicate saves)
 

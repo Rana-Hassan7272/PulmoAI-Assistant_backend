@@ -315,90 +315,67 @@ def dosage_calculator_agent(state: AgentState) -> AgentState:
     """
     Dosage Calculator Agent - calculates specific dosages for medications.
     
-    This agent:
-    1. Extracts medications from treatment plan
-    2. Calculates appropriate dosages based on age/weight
-    3. Updates treatment plan with specific dosages
-    4. Stores dosage information in state
+    Now uses calculate_dosage_tool from tools.py.
     """
     state["current_step"] = "dosage_calculator"
     
+    from .tools import calculate_dosage_tool
+    
     treatment_plan = state.get("treatment_plan", [])
     if not treatment_plan:
-        # No treatment plan, skip dosage calculation
         state["message"] = state.get("message") or "No treatment plan to calculate dosages for."
         return state
     
     patient_age = state.get("patient_age")
-    patient_weight = state.get("patient_weight")  # New field - needs to be collected
-    diagnosis = state.get("diagnosis", "Unknown condition")
-    
-    # Check if we have required information
     if not patient_age:
         state["message"] = "Unable to calculate dosages: Patient age is required."
         return state
     
-    # Calculate dosages for each medication
-    calculated_dosages = {}
-    updated_treatment_plan = []
+    # Call tool to calculate dosages
+    result = calculate_dosage_tool(state)
     
-    for treatment_item in treatment_plan:
-        # Extract medication name
-        medication = extract_medication_name(treatment_item)
+    if result["status"] == "success" or result["status"] == "partial":
+        dosages = result["dosages"]
+        state["calculated_dosages"] = dosages
         
-        if medication:
-            # Calculate dosage
-            try:
-                dose_info = calculate_medication_dosage(
-                    medication=medication,
-                    age_years=patient_age,
-                    weight_kg=patient_weight,
-                    diagnosis=diagnosis,
-                    treatment_text=treatment_item
-                )
-                
-                # Store calculated dosage
-                calculated_dosages[medication] = dose_info
-                
-                # Update treatment item with specific dosage
-                food_note = " (with food)" if dose_info.get("with_food") else ""
-                if dose_info.get("with_food") is False:
-                    food_note = " (can be taken with or without food)"
-                
-                updated_item = f"{medication.capitalize()} {dose_info.get('dose', '')} {dose_info.get('frequency', '')}{food_note}"
-                if dose_info.get("notes"):
-                    updated_item += f" - Note: {dose_info.get('notes')}"
-                
-                updated_treatment_plan.append(updated_item)
-            except Exception as e:
-                print(f"Warning: Failed to calculate dose for {medication}: {e}")
-                import traceback
-                print(traceback.format_exc())
-                # Keep original treatment item if calculation fails
+        # Update treatment plan with calculated dosages
+        updated_treatment_plan = []
+        for treatment_item in treatment_plan:
+            # Try to match medication from treatment plan with calculated dosages
+            medication_found = False
+            for med_name, dose_info in dosages.items():
+                if med_name.lower() in treatment_item.lower():
+                    # Update treatment item with specific dosage
+                    updated_item = f"{med_name.capitalize()} {dose_info.get('dose', '')} {dose_info.get('frequency', '')}"
+                    if dose_info.get("duration"):
+                        updated_item += f" for {dose_info.get('duration')}"
+                    if dose_info.get("notes"):
+                        updated_item += f" - Note: {dose_info.get('notes')}"
+                    updated_treatment_plan.append(updated_item)
+                    medication_found = True
+                    break
+            
+            if not medication_found:
+                # Keep original treatment item
                 updated_treatment_plan.append(treatment_item)
-        else:
-            # Couldn't extract medication name, keep original
-            updated_treatment_plan.append(treatment_item)
-    
-    # Update state with calculated dosages
-    state["treatment_plan"] = updated_treatment_plan
-    state["calculated_dosages"] = calculated_dosages
-    
-    # Generate summary message
-    if calculated_dosages:
+        
+        state["treatment_plan"] = updated_treatment_plan
+        
+        # Generate summary message
+        patient_weight = state.get("patient_weight")
         dosage_summary = "Dosages calculated based on your age"
         if patient_weight:
             dosage_summary += f" and weight ({patient_weight}kg)"
         dosage_summary += ":\n\n"
         
-        for med, dose_info in calculated_dosages.items():
-            dosage_summary += f"{med.capitalize()}: {dose_info.get('dose')} {dose_info.get('frequency')}\n"
+        for med, dose_info in dosages.items():
+            dosage_summary += f"{med.capitalize()}: {dose_info.get('dose', 'N/A')} {dose_info.get('frequency', 'N/A')}\n"
             if dose_info.get("notes"):
                 dosage_summary += f"  Note: {dose_info.get('notes')}\n"
         
         state["message"] = dosage_summary
     else:
-        state["message"] = state.get("message") or "Treatment plan ready."
+        state["message"] = result.get("message", "Dosage calculation encountered an issue.")
     
     return state
 

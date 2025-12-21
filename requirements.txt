@@ -26,6 +26,9 @@ langchain-community
 typing-extensions
 groq
 PyPDF2
+reportlab
 tf-keras
 python-jose[cryptography]
 passlib[bcrypt]
+bcrypt>=4.0.0
+email-validator

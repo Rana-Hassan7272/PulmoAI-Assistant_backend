@@ -25,6 +25,7 @@ class VisitResponse(BaseModel):
     xray_result: Optional[str]
     spirometry_result: Optional[str]
     cbc_result: Optional[str]
+    pdf_report_path: Optional[str]
     created_at: str
 
     class Config:

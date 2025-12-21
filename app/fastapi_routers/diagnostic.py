@@ -70,6 +70,7 @@ def start_diagnostic(
             "vitals": None,
             "emergency_flag": False,
             "emergency_reason": None,
+            "emergency_checked": False,
             "doctor_note": None,
             "xray_result": None,
             "xray_available": False,
@@ -81,10 +82,10 @@ def start_diagnostic(
             "rag_context": None,
             "diagnosis": None,
             "treatment_plan": None,
-            "tests_recommended": None,
-            "home_remedies": None,
+            "tests_recommended": [],
+            "home_remedies": [],
             "followup_instruction": None,
-            "previous_visits": None,
+            "previous_visits": [],
             "progress_summary": None,
             "conversation_history": [],
             "current_step": None,
@@ -92,9 +93,10 @@ def start_diagnostic(
             "patient_data_confirmed": False,
             "treatment_approved": False,
             "treatment_modifications": None,
-            "calculated_dosages": None,
+            "calculated_dosages": {},
             "error_count": 0,
-            "workflow_error": None
+            "workflow_error": None,
+            "history_saved": False
         }
         
         # Use visit_id as thread_id for LangGraph checkpointing
@@ -255,7 +257,7 @@ async def chat_with_agent(
         # Use visit_id as thread_id for LangGraph checkpointing
         config = {
             "configurable": {"thread_id": visit_id},
-            "recursion_limit": 50  # Increase recursion limit for chat interactions
+            "recursion_limit": 100  # Increase recursion limit for chat interactions (was 50, increased to handle complex workflows)
         }
         
         # Get current state from LangGraph checkpointer
@@ -291,6 +293,7 @@ async def chat_with_agent(
                 "vitals": None,
                 "emergency_flag": False,
                 "emergency_reason": None,
+                "emergency_checked": False,
                 "doctor_note": None,
                 "xray_result": None,
                 "xray_available": False,
@@ -302,19 +305,20 @@ async def chat_with_agent(
                 "rag_context": None,
                 "diagnosis": None,
                 "treatment_plan": None,
-                "tests_recommended": None,
-                "home_remedies": None,
+                "tests_recommended": [],
+                "home_remedies": [],
                 "followup_instruction": None,
-                "previous_visits": None,
+                "previous_visits": [],
                 "progress_summary": None,
                 "current_step": None,
                 "message": None,
                 "patient_data_confirmed": False,
                 "treatment_approved": False,
                 "treatment_modifications": None,
-                "calculated_dosages": None,
+                "calculated_dosages": {},
                 "error_count": 0,
-                "workflow_error": None
+                "workflow_error": None,
+                "history_saved": False
             }
         else:
             # Update visit_id in existing state if needed
@@ -324,6 +328,13 @@ async def chat_with_agent(
         if "conversation_history" not in state:
             state["conversation_history"] = []
         state["conversation_history"].append({"role": "user", "content": message})
+        
+        # Debug: Log state before graph execution
+        print(f"DEBUG: State before graph execution:")
+        print(f"  - current_step: {state.get('current_step')}")
+        print(f"  - patient_data_confirmed: {state.get('patient_data_confirmed')}")
+        print(f"  - conversation_history length: {len(state.get('conversation_history', []))}")
+        print(f"  - last user message: {message[:50]}")
         
         # Update patient_id if provided
         if patient_id is not None:
@@ -357,6 +368,8 @@ async def chat_with_agent(
                     "role": "assistant",
                     "content": xray_result_text
                 })
+                # Set current message to show analysis result
+                state["message"] = xray_result_text
                 
                 # Also store in state for diagnostic controller to pick up
                 state["xray_result"] = {
@@ -387,8 +400,23 @@ async def chat_with_agent(
             )
         
         # Run the graph with config (LangGraph automatically saves state via checkpointer)
+        # The graph will stop at END when routing to awaiting_confirmation or awaiting_approval
         try:
+            # Debug: Log current state before invoking
+            print(f"DEBUG: Invoking graph with state:")
+            print(f"  - current_step: {state.get('current_step')}")
+            print(f"  - patient_data_confirmed: {state.get('patient_data_confirmed')}")
+            print(f"  - last message: {state.get('conversation_history', [])[-1] if state.get('conversation_history') else 'None'}")
+            
+            # Use invoke - it will stop at END nodes (which we route to for waiting steps)
             result = graph.invoke(state, config=config)
+            
+            # Debug: Log result after invoking
+            print(f"DEBUG: Graph execution completed:")
+            print(f"  - current_step: {result.get('current_step')}")
+            print(f"  - message: {result.get('message', 'None')[:100] if result.get('message') else 'None'}")
+            print(f"  - patient_data_confirmed: {result.get('patient_data_confirmed')}")
+            
         except Exception as graph_error:
             import traceback
             error_trace = traceback.format_exc()

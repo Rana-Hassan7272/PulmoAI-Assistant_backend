@@ -17,6 +17,7 @@ class Visit(Base):
     xray_result = Column(Text, nullable=True)  # JSON string for X-ray analysis result
     spirometry_result = Column(Text, nullable=True)  # JSON string for spirometry result
     cbc_result = Column(Text, nullable=True)  # JSON string for CBC result
+    pdf_report_path = Column(String, nullable=True)  # Path to saved PDF report
     created_at = Column(DateTime, default=datetime.utcnow)
 
     patient = relationship("Patient")
