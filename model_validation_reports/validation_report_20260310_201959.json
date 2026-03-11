@@ -1,0 +1,217 @@
+{
+  "timestamp": "2026-03-10T20:19:59.057037+00:00",
+  "validation_results": {
+    "xray": {
+      "model": "xray_pneumonia_detection",
+      "status": "model_validated",
+      "message": "Model loads and makes predictions. Test dataset needed for accuracy metrics.",
+      "total_samples": 0,
+      "accuracy": null,
+      "precision_macro_avg": null,
+      "recall_macro_avg": null,
+      "f1_macro_avg": null
+    },
+    "spirometry": {
+      "model": "spirometry_analysis",
+      "overall_accuracy": 0.98375,
+      "overall_precision": 0.5,
+      "overall_recall": 0.6041666666666666,
+      "overall_f1_score": 0.5428571428571428,
+      "per_condition_metrics": {
+        "obstruction": {
+          "accuracy": 0.985,
+          "precision": 0.5,
+          "recall": 0.6666666666666666,
+          "f1_score": 0.5714285714285714,
+          "confusion_matrix": [
+            [
+              195,
+              2
+            ],
+            [
+              1,
+              2
+            ]
+          ],
+          "total_samples": 200
+        },
+        "restriction": {
+          "accuracy": 0.98,
+          "precision": 0.5,
+          "recall": 0.75,
+          "f1_score": 0.6,
+          "confusion_matrix": [
+            [
+              193,
+              3
+            ],
+            [
+              1,
+              3
+            ]
+          ],
+          "total_samples": 200
+        },
+        "prism": {
+          "accuracy": 0.97,
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1_score": 0.0,
+          "confusion_matrix": [
+            [
+              194,
+              6
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "total_samples": 200
+        },
+        "mixed": {
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1_score": 1.0,
+          "confusion_matrix": [
+            [
+              199,
+              0
+            ],
+            [
+              0,
+              1
+            ]
+          ],
+          "total_samples": 200
+        }
+      },
+      "total_samples": 200
+    },
+    "bloodcount": {
+      "model": "bloodcount_disease_prediction",
+      "total_samples": 200,
+      "accuracy": 0.62,
+      "precision_macro_avg": 0.5236299648064354,
+      "recall_macro_avg": 0.7777777777777778,
+      "f1_macro_avg": 0.5604938271604938,
+      "confusion_matrix": [
+        [
+          0,
+          0,
+          61,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          26,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          4,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          40,
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          39,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          12,
+          0
+        ],
+        [
+          0,
+          0,
+          3,
+          11,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "class_labels": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    }
+  },
+  "summary": {
+    "models_evaluated": 3,
+    "total_samples_tested": 400
+  }
+}

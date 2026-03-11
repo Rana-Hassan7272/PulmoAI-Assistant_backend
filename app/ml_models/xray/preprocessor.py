@@ -251,8 +251,23 @@ def predict_xray(image: Union[str, Path, Image.Image, np.ndarray]) -> Dict[str, 
         - 'class_name': str ('No disease', 'Bacterial pneumonia', or 'Viral pneumonia')
         - 'confidence': float (confidence score 0-1)
     """
+    import time
+    from ...core.performance import log_ml_inference
+    
+    start_time = time.time()
     predictor = get_predictor()
-    return predictor.predict(image)
+    result = predictor.predict(image)
+    duration = time.time() - start_time
+    
+    # Log performance
+    input_size = None
+    if isinstance(image, Image.Image):
+        input_size = {"width": image.width, "height": image.height}
+    elif isinstance(image, np.ndarray):
+        input_size = {"shape": image.shape}
+    
+    log_ml_inference("xray", duration, input_size)
+    return result
 
 
 def predict_xray_proba(image: Union[str, Path, Image.Image, np.ndarray]) -> Dict[str, float]:

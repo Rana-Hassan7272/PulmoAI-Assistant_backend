@@ -1,16 +1,23 @@
+import os
+import logging
+import traceback
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from dotenv import load_dotenv
 from .core.init_db import init_db
 from .core.error_handling import (
     LLMError, DatabaseError, PDFGenerationError, MLModelError,
     format_error_for_user, log_error_with_context
 )
-import logging
-import traceback
+from .core.middleware import PerformanceMonitoringMiddleware
+from .core.performance import get_performance_stats
 
-from .fastapi_routers import patients, visits, lab_results, imaging, spirometry, diagnostic, rag, auth
+from .fastapi_routers import patients, visits, lab_results, imaging, spirometry, diagnostic, rag, auth, model_validation
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +27,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Performance Monitoring Middleware (add first to measure all requests)
+app.add_middleware(PerformanceMonitoringMiddleware)
+
 # CORS Configuration
 # Allow requests from frontend (adjust origins for production)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Get allowed origins from environment variable (comma-separated) or use defaults
+allowed_origins_env = os.getenv("CORS_ORIGINS", "")
+if allowed_origins_env:
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
+else:
+    # Default origins for local development
+    allowed_origins = [
         "http://localhost:3000",  # React default
         "http://localhost:3001",  # Alternative React port
         "http://localhost:5173",  # Vite default
@@ -34,9 +48,11 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:8080",
-        # Add production frontend URL here when deployed
-        # "https://your-frontend-domain.com",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods (GET, POST, PUT, DELETE, etc.)
     allow_headers=["*"],  # Allows all headers
@@ -140,6 +156,21 @@ def health_check():
     """Health check endpoint for Docker/Kubernetes"""
     return {"status": "healthy", "service": "doctor-assistant-api"}
 
+
+# Performance metrics endpoint
+@app.get("/metrics/performance")
+def get_performance_metrics():
+    """
+    Get current performance statistics.
+    
+    Returns aggregated performance metrics for:
+    - API response times
+    - ML model inference times
+    - RAG retrieval performance
+    - Database query performance
+    """
+    return get_performance_stats()
+
 app.include_router(auth.router)
 app.include_router(patients.router)
 app.include_router(visits.router)
@@ -148,3 +179,4 @@ app.include_router(imaging.router)
 app.include_router(spirometry.router)
 app.include_router(diagnostic.router)
 app.include_router(rag.router)
+app.include_router(model_validation.router)

@@ -458,8 +458,17 @@ def predict_blood_disease(data: Dict) -> Dict[str, Union[int, str, float]]:
         - 'disease_name': str (name of the predicted disease)
         - 'confidence': float (confidence score 0-1)
     """
+    import time
+    from ...core.performance import log_ml_inference
+    
+    start_time = time.time()
     predictor = get_predictor()
-    return predictor.predict(data)
+    result = predictor.predict(data)
+    duration = time.time() - start_time
+    
+    # Log performance
+    log_ml_inference("bloodcount", duration, {"features_count": len(data)})
+    return result
 
 
 def predict_blood_disease_proba(data: Dict) -> Dict[str, float]:

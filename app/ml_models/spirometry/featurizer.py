@@ -499,8 +499,17 @@ def predict_spirometry(data: Dict) -> Dict[str, Union[int, float]]:
     Returns:
         Dictionary with predictions for obstruction, restriction, prism, mixed
     """
+    import time
+    from ...core.performance import log_ml_inference
+    
+    start_time = time.time()
     featurizer = get_featurizer()
-    return featurizer.predict(data)
+    result = featurizer.predict(data)
+    duration = time.time() - start_time
+    
+    # Log performance
+    log_ml_inference("spirometry", duration, {"features_count": len(data)})
+    return result
 
 
 def predict_spirometry_proba(data: Dict) -> Dict[str, float]:

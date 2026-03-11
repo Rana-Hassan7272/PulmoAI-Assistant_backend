@@ -142,7 +142,20 @@ class RAGAgent:
         Returns:
             Formatted context string for LLM prompts
         """
-        return self.retriever.retrieve_formatted(query, k=k, min_similarity=min_similarity)
+        import time
+        from ...core.performance import log_rag_retrieval
+        
+        start_time = time.time()
+        context = self.retriever.retrieve_formatted(query, k=k, min_similarity=min_similarity)
+        duration = time.time() - start_time
+        
+        # Count documents retrieved (rough estimate)
+        documents_retrieved = context.count("[") if context else 0
+        
+        # Log performance
+        log_rag_retrieval(query, duration, documents_retrieved, k)
+        
+        return context
     
     def retrieve_documents(
         self,
@@ -161,7 +174,17 @@ class RAGAgent:
         Returns:
             List of tuples (document, similarity_score)
         """
-        return self.retriever.retrieve(query, k=k, min_similarity=min_similarity)
+        import time
+        from ...core.performance import log_rag_retrieval
+        
+        start_time = time.time()
+        documents = self.retriever.retrieve(query, k=k, min_similarity=min_similarity)
+        duration = time.time() - start_time
+        
+        # Log performance
+        log_rag_retrieval(query, duration, len(documents), k)
+        
+        return documents
     
     def get_stats(self) -> Dict[str, Any]:
         """Get statistics about the RAG system."""
