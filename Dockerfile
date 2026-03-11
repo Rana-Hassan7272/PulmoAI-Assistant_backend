@@ -44,11 +44,16 @@ COPY --from=builder /root/.local /root/.local
 # Make sure scripts in .local are usable
 ENV PATH=/root/.local/bin:$PATH
 
-# Copy application code
+# Copy only necessary application code (excludes files in .dockerignore)
 COPY . .
 
 # Create necessary directories
 RUN mkdir -p reports data/rag_index
+
+# Verify essential model files exist (optional check)
+RUN python -c "import os; \
+    assert os.path.exists('app/ml_models/xray/pneumonia_resnet50.pth'), 'X-ray model missing'; \
+    print('✓ Essential model files verified')" || echo "⚠️  Warning: Some model files may be missing"
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1

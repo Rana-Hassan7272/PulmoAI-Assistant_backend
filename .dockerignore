@@ -15,6 +15,9 @@ ENV/
 htmlcov/
 *.cover
 .hypothesis/
+tests/
+test_*.py
+*_test.py
 
 # IDE
 .vscode/
@@ -34,6 +37,21 @@ reports/
 uploads/
 data/checkpoints/
 model_validation_reports/
+scripts/
+PERFORMANCE_METRICS.md
+pytest.ini
+test_*.py
+
+# ML Models - exclude test images, datasets, but keep model files
+app/ml_models/**/*.jpeg
+app/ml_models/**/*.jpg
+app/ml_models/**/*.png
+app/ml_models/**/test/
+app/ml_models/**/dataset/
+app/ml_models/**/*.csv
+app/ml_models/**/README.md
+app/ml_models/**/resave_*.py
+# Keep model files (.pth, .pkl) - they are needed
 
 # Git
 .git/
@@ -50,6 +68,15 @@ cicd/
 # Environment
 .env
 .env.local
+.env.*
+!.env.example
 
 # Logs
 *.log
+
+# Build artifacts
+htmlcov/
+.coverage
+dist/
+build/
+*.egg-info/
