@@ -1,3 +1,4 @@
+# Production requirements (PyTorch installed separately in Dockerfile)
 fastapi
 uvicorn
 sqlalchemy
@@ -14,8 +15,7 @@ faiss-cpu
 python-dotenv
 openai
 xgboost
-torch
-torchvision
+# torch and torchvision installed separately in Dockerfile (CPU-only)
 pytesseract
 pdf2image
 joblib
@@ -33,6 +33,7 @@ python-jose[cryptography]
 passlib[bcrypt]
 bcrypt>=4.0.0
 email-validator
+# Testing dependencies (optional in production)
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0

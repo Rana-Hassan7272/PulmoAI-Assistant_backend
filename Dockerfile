@@ -4,18 +4,26 @@ FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies (minimal for build)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     libpq-dev \
-    tesseract-ocr \
-    libtesseract-dev \
-    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Upgrade pip, setuptools, wheel for better performance
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Copy requirements file
 COPY requirements.txt .
+
+# Strategy: Install PyTorch CPU-only first (largest package, ~500MB)
+# Then install rest from requirements.txt - pip will skip already installed packages
+RUN pip install --no-cache-dir --user \
+    torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install all other dependencies from requirements.txt
+# Pip will skip torch/torchvision since they're already installed
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Runtime
@@ -23,8 +31,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime system dependencies
-RUN apt-get update && apt-get install -y \
+# Install runtime system dependencies (minimal)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     libtesseract-dev \
     poppler-utils \

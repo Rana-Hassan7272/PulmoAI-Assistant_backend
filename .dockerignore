@@ -4,15 +4,17 @@ __pycache__/
 *$py.class
 *.so
 .Python
-*.egg-info/
-dist/
-build/
-*.egg
-
-# Virtual environments
 venv/
 env/
 ENV/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
 
 # IDE
 .vscode/
@@ -21,44 +23,33 @@ ENV/
 *.swo
 *~
 
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-*.log
-logs/
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
 # OS
 .DS_Store
 Thumbs.db
 
-# Reports (will be generated at runtime)
-reports/*.pdf
+# Project specific
+*.db
+medical.db
+reports/
+uploads/
+data/checkpoints/
+model_validation_reports/
 
-# Data (keep structure, but not large files)
-data/rag_index/*.index
-data/rag_index/*.pkl
+# Git
+.git/
+.gitignore
 
 # Documentation
 *.md
 !README.md
 
-# Migration scripts (keep for runtime)
-# run_migration.py
+# CI/CD
+.github/
+cicd/
 
-# Test files
-test_*.py
-*_test.py
+# Environment
+.env
+.env.local
 
+# Logs
+*.log
