@@ -26,7 +26,12 @@ RUN pip install --no-cache-dir --user \
 
 # Install all other dependencies from requirements.txt
 # Pip will skip torch/torchvision since they're already installed
+# Use --no-deps where possible to avoid unnecessary dependencies
 RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Clean up pip cache and temporary files to reduce image size
+RUN pip cache purge || true
+RUN rm -rf /tmp/* /var/tmp/* /root/.cache/pip || true
 
 # Stage 2: Runtime
 FROM python:3.11-slim
@@ -40,18 +45,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
+# Copy Python dependencies from builder (optimized - only site-packages and bin)
+# Exclude __pycache__ and .pyc files to reduce size
+COPY --from=builder /root/.local/lib/python3.11/site-packages /root/.local/lib/python3.11/site-packages
+COPY --from=builder /root/.local/bin /root/.local/bin
+
+# Clean up Python cache files in copied packages
+RUN find /root/.local/lib/python3.11/site-packages -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
+RUN find /root/.local/lib/python3.11/site-packages -type f -name "*.pyc" -delete 2>/dev/null || true
+RUN find /root/.local/lib/python3.11/site-packages -type f -name "*.pyo" -delete 2>/dev/null || true
 
 # Make sure scripts in .local are usable (fixes PATH warnings)
 ENV PATH=/root/.local/bin:$PATH
-ENV PYTHONPATH=/app:$PYTHONPATH
+ENV PYTHONPATH=/root/.local/lib/python3.11/site-packages:$PYTHONPATH
 
 # Copy only necessary application code (excludes files in .dockerignore)
 COPY . .
 
 # Create necessary directories
 RUN mkdir -p reports data/rag_index
+
+# Remove Python cache and temporary files from application code
+RUN find . -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
+RUN find . -type f -name "*.pyc" -delete 2>/dev/null || true
+RUN find . -type f -name "*.pyo" -delete 2>/dev/null || true
+RUN find . -type f -name "*.pyd" -delete 2>/dev/null || true
 
 # Verify essential model files exist (optional check)
 RUN python -c "import os; \

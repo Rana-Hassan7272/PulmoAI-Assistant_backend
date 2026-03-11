@@ -28,14 +28,16 @@ typing-extensions
 groq
 PyPDF2
 reportlab
-tf-keras
+# tf-keras removed - not used, saves ~2GB
 python-jose[cryptography]
 passlib[bcrypt]
 bcrypt>=4.0.0
 email-validator
-pytest>=7.4.0
-pytest-asyncio>=0.21.0
-pytest-cov>=4.1.0
+# Testing packages removed for production (saves ~500MB)
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+# pytest-cov>=4.1.0
 httpx>=0.24.0
-matplotlib>=3.7.0
-seaborn>=0.12.0
+# Visualization packages removed - only used in scripts, not in app (saves ~200MB)
+# matplotlib>=3.7.0
+# seaborn>=0.12.0

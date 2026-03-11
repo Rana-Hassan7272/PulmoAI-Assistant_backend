@@ -41,6 +41,8 @@ scripts/
 PERFORMANCE_METRICS.md
 pytest.ini
 test_*.py
+*.md
+!README.md
 
 # ML Models - exclude test images, datasets, but keep model files
 app/ml_models/**/*.jpeg
