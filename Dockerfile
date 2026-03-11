@@ -24,9 +24,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user \
     torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
+# Install packaging first (required by langchain-core)
+RUN pip install --no-cache-dir --user packaging
+
 # Install all other dependencies from requirements.txt
 # Pip will skip torch/torchvision since they're already installed
-# Use --no-deps where possible to avoid unnecessary dependencies
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Clean up pip cache and temporary files to reduce image size
