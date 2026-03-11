@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip, setuptools, wheel for better performance
+# Suppress PATH warnings by adding to PATH early
+ENV PATH=/root/.local/bin:$PATH
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Copy requirements file
@@ -41,8 +43,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy Python dependencies from builder
 COPY --from=builder /root/.local /root/.local
 
-# Make sure scripts in .local are usable
+# Make sure scripts in .local are usable (fixes PATH warnings)
 ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 # Copy only necessary application code (excludes files in .dockerignore)
 COPY . .
