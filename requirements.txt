@@ -28,6 +28,7 @@ typing-extensions
 groq
 PyPDF2
 reportlab
+packaging
 # tf-keras removed - not used, saves ~2GB
 python-jose[cryptography]
 passlib[bcrypt]
