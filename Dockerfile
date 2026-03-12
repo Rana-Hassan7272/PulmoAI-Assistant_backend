@@ -47,10 +47,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# Install pip and setuptools in runtime stage first
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
 # Copy Python dependencies from builder (optimized - only site-packages and bin)
 # Exclude __pycache__ and .pyc files to reduce size
 COPY --from=builder /root/.local/lib/python3.11/site-packages /root/.local/lib/python3.11/site-packages
 COPY --from=builder /root/.local/bin /root/.local/bin
+
+# Ensure packaging is installed in runtime stage (required by langchain-core)
+# This is a safety check - install it explicitly even if copied from builder
+RUN pip install --no-cache-dir --user packaging
+RUN python -c "import packaging; print('✓ packaging verified in runtime stage')"
 
 # Clean up Python cache files in copied packages
 RUN find /root/.local/lib/python3.11/site-packages -type d -name __pycache__ -exec rm -r {} + 2>/dev/null || true
